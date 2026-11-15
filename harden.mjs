@@ -283,7 +283,7 @@ export function transform(file, source) {
             setTip("此版本仅允许 HTTPS 直连源", true, true);
             return;
         }`);
-    s = replaceOnce(s, 'int playerType = mVodPlayerCfg.getInt("pl");', 'int playerType = 2; // External players are disabled.');
+    s = replaceOnce(s, 'int playerType = mVodPlayerCfg.getInt("pl");', 'mVodPlayerCfg.put("pl", 2);\n                            int playerType = 2; // External players are disabled.');
     const uiDispatch = file === box + 'ui/fragment/PlayFragment.java' ? 'if (getActivity() != null) getActivity().runOnUiThread' : 'runOnUiThread';
     const tail = s.indexOf('    // webview\n');
     if (tail < 0) throw new Error('Web parser marker changed');
