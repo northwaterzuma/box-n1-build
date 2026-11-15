@@ -10,11 +10,13 @@ import xml.etree.ElementTree as ET
 import zipfile
 
 ANDROID = '{http://schemas.android.com/apk/res/android}'
+RECEIVER_PERMISSION = 'com.github.tvbox.osc.n1strict.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION'
 ALLOWED_PERMISSIONS = {
     'android.permission.INTERNET', 'android.permission.ACCESS_NETWORK_STATE',
     'android.permission.ACCESS_WIFI_STATE', 'android.permission.CHANGE_WIFI_MULTICAST_STATE',
     'android.permission.READ_EXTERNAL_STORAGE', 'android.permission.WRITE_EXTERNAL_STORAGE',
     'android.permission.FOREGROUND_SERVICE',
+    RECEIVER_PERMISSION,
 }
 ABI = {'arm64-v8a': (2, 183), 'armeabi-v7a': (1, 40)}
 
@@ -56,6 +58,9 @@ def validate_manifest(xml):
     require(app.get(ANDROID + 'usesCleartextTraffic') == 'false', 'Cleartext traffic not disabled')
     require(app.get(ANDROID + 'networkSecurityConfig'), 'Network security configuration missing')
     permissions = {item.get(ANDROID + 'name') for item in root if item.tag.startswith('uses-permission')}
+    receiver_permissions = [item for item in root.findall('permission') if item.get(ANDROID + 'name') == RECEIVER_PERMISSION]
+    if RECEIVER_PERMISSION in permissions or receiver_permissions:
+        require(len(receiver_permissions) == 1 and receiver_permissions[0].get(ANDROID + 'protectionLevel') in ('signature', '2', '0x2', '0x00000002'), 'Internal receiver permission must require the same signature')
     require(permissions <= ALLOWED_PERMISSIONS, 'Unreviewed merged permissions: ' + str(sorted(permissions - ALLOWED_PERMISSIONS)))
     for tag in ('activity', 'activity-alias', 'service', 'receiver', 'provider'):
         for item in app.findall(tag):
@@ -103,6 +108,8 @@ def main():
     require(found == set(ABI), 'Both target ABIs are required')
     args.report.parent.mkdir(parents=True, exist_ok=True)
     args.report.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding='utf-8')
+    for item in report:
+        print(json.dumps({key: item[key] for key in ('file', 'abi', 'sha256', 'permissions', 'signature_checked')}, ensure_ascii=False))
     print('Verified APK structure and merged policy. Device and dependency security remain separate checks.')
 
 
