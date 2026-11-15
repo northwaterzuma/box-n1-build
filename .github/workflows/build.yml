@@ -1,0 +1,128 @@
+name: Build and inspect N1 strict candidate
+on:
+  workflow_dispatch:
+    inputs:
+      sign:
+        description: Sign with an existing private keystore configured in repository secrets
+        required: true
+        default: false
+        type: boolean
+permissions:
+  contents: read
+concurrency:
+  group: box-n1-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          path: kit
+          persist-credentials: false
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: takagen99/Box
+          ref: 258a5fef61578869ae905ca230bdde9e99fc19a8
+          path: Box-N1
+          persist-credentials: false
+          submodules: false
+          lfs: false
+      - name: Use preinstalled Java and Android tools
+        shell: bash
+        run: |
+          test -d "$JAVA_HOME_17_X64"
+          echo "JAVA_HOME=$JAVA_HOME_17_X64" >> "$GITHUB_ENV"
+          echo "$JAVA_HOME_17_X64/bin" >> "$GITHUB_PATH"
+          test -d "$ANDROID_HOME/platforms/android-34"
+          test -x "$ANDROID_HOME/build-tools/34.0.0/aapt"
+          test -x "$ANDROID_HOME/cmdline-tools/latest/bin/apkanalyzer"
+      - uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a
+        with:
+          gradle-version: '7.6.4'
+          cache-disabled: true
+      - name: Validate tools and apply the reviewed source changes
+        shell: bash
+        run: |
+          node --test kit/test_harden.mjs
+          python3 -m unittest discover -s kit -p 'test_*.py'
+          node kit/harden.mjs Box-N1
+          mkdir -p out/review out/candidates
+          git -C Box-N1 add -N app/src/main/java/com/github/tvbox/osc/util/HttpsOnlyInterceptor.java
+          git -C Box-N1 diff --binary > out/review/source.patch
+          cp kit/baseline.json out/review/baseline.json
+          cp Box-N1/LICENSE out/review/LICENSE
+      - name: Resolve and audit Maven dependencies before compilation
+        shell: bash
+        run: |
+          gradle -p Box-N1 -I "$GITHUB_WORKSPACE/kit/dependencies.gradle" --no-daemon --console=plain --write-verification-metadata sha256 :app:n1DependencyInventory
+          cp Box-N1/build/security/dependencies.json out/review/dependencies.json
+          cp Box-N1/gradle/verification-metadata.xml out/review/verification-metadata.xml
+          python3 kit/scan_dependencies.py out/review/dependencies.json out/review/osv-report.json
+      - name: Compile both target ABIs with dependency verification
+        shell: bash
+        run: |
+          gradle -p Box-N1 --no-daemon --console=plain --dependency-verification strict :app:assembleArm64GenericNormalRelease :app:assembleArmeabiGenericNormalRelease
+          find Box-N1/app/build/outputs/apk -type f -name '*.apk' -exec cp '{}' out/candidates/ \;
+          python3 kit/verify_apks.py out/candidates --report out/candidates/apk-report.json
+          tar --exclude=.git --exclude=.github --exclude=.gradle --exclude=build --exclude=local.properties -czf out/review/modified-source.tar.gz -C Box-N1 .
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: box-n1-review
+          path: out/review/
+          if-no-files-found: warn
+          retention-days: 30
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: box-n1-unsigned
+          path: out/candidates/
+          if-no-files-found: error
+          retention-days: 30
+  sign:
+    if: ${{ inputs.sign }}
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          path: kit
+          persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: box-n1-unsigned
+          path: unsigned
+      - name: Verify data before exposing the signing key
+        run: python3 kit/verify_apks.py unsigned --report unsigned/verified.json
+      - name: Sign in a separate job without running application build code
+        shell: bash
+        env:
+          KEYSTORE_B64: ${{ secrets.BOX_KEYSTORE_B64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.BOX_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.BOX_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.BOX_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          test -n "$KEYSTORE_B64"
+          test -n "$KEYSTORE_PASSWORD"
+          test -n "$KEY_ALIAS"
+          test -n "$KEY_PASSWORD"
+          umask 077
+          keyfile="$RUNNER_TEMP/box-signing.keystore"
+          trap 'rm -f "$keyfile"' EXIT
+          printf '%s' "$KEYSTORE_B64" | base64 --decode > "$keyfile"
+          unset KEYSTORE_B64
+          mkdir signed
+          for apk in unsigned/*.apk; do
+            "$ANDROID_HOME/build-tools/34.0.0/apksigner" sign --ks "$keyfile" --ks-key-alias "$KEY_ALIAS" --ks-pass env:KEYSTORE_PASSWORD --key-pass env:KEY_PASSWORD --out "signed/$(basename "$apk")" "$apk"
+          done
+      - name: Verify signatures and final APKs
+        run: python3 kit/verify_apks.py signed --signed --report signed/apk-report.json
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: box-n1-signed
+          path: signed/
+          if-no-files-found: error
+          retention-days: 30
