@@ -1,7 +1,7 @@
 import io
 import unittest
 import zipfile
-from verify_apks import validate_zip, validate_manifest, RECEIVER_PERMISSION
+from verify_apks import validate_zip, validate_manifest, network_resource_path, RECEIVER_PERMISSION
 
 
 def apk(libraries):
@@ -24,6 +24,17 @@ MANIFEST = '''<manifest xmlns:android="http://schemas.android.com/apk/res/androi
 
 
 class ApkPolicyTests(unittest.TestCase):
+    def test_resolves_network_policy_from_manifest_resource_id(self):
+        manifest = 'A: android:networkSecurityConfig(0x01010527)=@0x7f130002'
+        resources = '  spec resource 0x7f130002 xml/network_security_config\n  resource 0x7f130001 xml/other:\n    (string8) "res/xml/network_security_config.xml"\n  resource 0x7f130002 xml/network_security_config:\n    (string8) "res/a.xml"\n'
+        self.assertEqual(network_resource_path(manifest, resources), 'res/a.xml')
+
+    def test_rejects_missing_or_ambiguous_network_resource(self):
+        manifest = 'A: android:networkSecurityConfig(0x01010527)=@0x7f130002'
+        for resources in ('', 'resource 0x7f130002 xml/policy:\n (string8) "res/a.xml"\n (string8) "res/b.xml"'):
+            with self.assertRaisesRegex(ValueError, 'ambiguous'):
+                network_resource_path(manifest, resources)
+
     def test_accepts_real_arm64_header(self):
         with apk({'lib/arm64-v8a/libplayer.so': (2, 183)}) as archive:
             self.assertEqual(len(validate_zip(archive, 'arm64-v8a')), 1)
