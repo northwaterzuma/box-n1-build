@@ -9,7 +9,7 @@ allprojects { project ->
                     // Resolve compile-time configurations before the strict compilation pass.
                     project.configurations.findAll { configuration ->
                         def name = configuration.name.toLowerCase(Locale.ROOT)
-                        configuration.canBeResolved && (
+                        configuration.canBeResolved && !name.contains('unittest') && !name.contains('androidtest') && (
                             name.contains('arm64genericnormalrelease') ||
                             name.contains('armeabigenericnormalrelease') ||
                             name.startsWith('kotlincompiler'))
