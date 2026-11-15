@@ -226,7 +226,7 @@ export function transform(file, source) {
       if ([...s.matchAll(declaration)].length !== 1) throw new Error(`Permission declaration changed: ${permission}`);
       s = s.replace(declaration, '');
     }
-    s = replaceOnce(s, 'android:allowBackup="true"', 'android:allowBackup="false"');
+    s = replaceOnce(s, 'android:allowBackup="true"', 'android:allowBackup="false"\n        tools:replace="android:allowBackup,android:usesCleartextTraffic,android:networkSecurityConfig"');
     s = replaceOnce(s, 'android:usesCleartextTraffic="true"', 'android:usesCleartextTraffic="false"');
     s = s.replace(/(<receiver[^>]*android:exported=)"true"/g, '$1"false"');
     s = s.replace(/\s*<meta-data\s+android:name="xwalk_[^"]+"[^>]*\/>/g, '');
