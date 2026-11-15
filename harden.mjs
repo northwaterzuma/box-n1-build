@@ -58,7 +58,7 @@ import java.security.KeyStore;
 import javax.net.ssl.*;
 
 public class SSLCompat extends SSLSocketFactory {
-    public static final HostnameVerifier VERIFIER = HttpsURLConnection.getDefaultHostnameVerifier();
+    public static final HostnameVerifier VERIFIER = new okhttp3.OkHttpClient().hostnameVerifier();
     public static final X509TrustManager TM = systemTrustManager();
     private final SSLSocketFactory factory;
     private static X509TrustManager systemTrustManager() {
@@ -198,6 +198,16 @@ export function transform(file, source) {
         }`);
   }
   if (file === 'app/build.gradle') {
+    for (const [before, after] of [
+      ['com.squareup.okhttp3:okhttp:3.12.11', 'com.squareup.okhttp3:okhttp:4.12.0'],
+      ['com.squareup.okio:okio:3.3.0', 'com.squareup.okio:okio:3.6.0'],
+      ['com.thoughtworks.xstream:xstream:1.4.20', 'com.thoughtworks.xstream:xstream:1.4.21'],
+      ['commons-io:commons-io:2.13.0', 'commons-io:commons-io:2.14.0'],
+      ['org.jsoup:jsoup:1.16.1', 'org.jsoup:jsoup:1.23.2']
+    ]) s = replaceOnce(s, before, after);
+    s = replaceOnce(s, '    constraints {', `    constraints {
+        implementation('com.google.guava:guava:33.7.2-android') { because('GHSA-xxph-c9ww-hj94') }
+        implementation('org.apache.commons:commons-lang3:3.18.0') { because('GHSA-j288-q9x7-2f5v') }`);
     s = replaceOnce(s, "applicationId 'com.github.tvbox.osc.tk'", "applicationId 'com.github.tvbox.osc.n1strict'");
     s = replaceOnce(s, "versionName \"1.0.\".concat(buildTime())", 'versionName "N1-strict-258a5fe"');
     s = replaceOnce(s, 'release {\n            minifyEnabled true', 'release {\n            debuggable false\n            minifyEnabled true');
@@ -228,8 +238,18 @@ export function transform(file, source) {
   if (file === box + 'util/OkGoHelper.java' || file === cat + 'net/OkHttp.java') {
     s = s.replaceAll('new OkHttpClient.Builder()', 'new OkHttpClient.Builder().addInterceptor(new com.github.tvbox.osc.util.HttpsOnlyInterceptor()).addNetworkInterceptor(new com.github.tvbox.osc.util.HttpsOnlyInterceptor()).followSslRedirects(false)');
     s = s.replaceAll('HttpsUtils.UnSafeHostnameVerifier', 'SSLCompat.VERIFIER');
+    s = s.replace('import okhttp3.internal.Util;\n', '').replace('import okhttp3.internal.Version;\n', '');
+    s = s.replace('Version.userAgent()', '"BoxN1/1"');
     s = s.replaceAll('.followSslRedirects(true)', '.followSslRedirects(false)');
-    s = s.replace('return Util.immutableList(RESTRICTED_TLS, MODERN_TLS, COMPATIBLE_TLS, CLEARTEXT);', 'return Util.immutableList(MODERN_TLS);');
+    s = s.replace('return Util.immutableList(RESTRICTED_TLS, MODERN_TLS, COMPATIBLE_TLS, CLEARTEXT);', 'return java.util.Collections.singletonList(MODERN_TLS);');
+  }
+  if (file === java + 'okhttp3/dnsoverhttps/DnsOverHttps.java') {
+    s = s.replace('import okhttp3.internal.platform.Platform;\n', '');
+    s = s.replace('import okhttp3.internal.publicsuffix.PublicSuffixDatabase;\n', '');
+    s = replaceOnce(s, 'Platform.get().log(Platform.WARN, "Incorrect protocol: " + response.protocol(), null);', 'android.util.Log.w("DnsOverHttps", "Incorrect protocol: " + response.protocol());');
+    s = replaceMethod(s, 'static boolean isPrivateHost(String host)', `        try {
+            return !com.google.common.net.InternetDomainName.from(host).isUnderPublicSuffix();
+        } catch (IllegalArgumentException invalidHost) { return true; }`);
   }
   if (file === box + 'util/urlhttp/SSLSocketFactoryCompat.java') {
     const begin = s.indexOf('    //定义一个信任所有证书的TrustManager');

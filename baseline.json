@@ -25,7 +25,8 @@
     "app/src/main/java/xyz/doikki/videoplayer/exo/ExoMediaSourceHelper.java": "6ed896eb68a03e3c2a620b7f8dd0d821cd6f36dd",
     "app/src/main/java/xyz/doikki/videoplayer/player/BaseVideoView.java": "f0015fb1ff35c065cbe76eedfd6982d7cd7188fd",
     "app/src/main/res/xml/network_security_config.xml": "dca93c079e349fc5005ea8b3ea0947eb9bec9619",
-    "app/src/main/res/xml/file_paths.xml": "c3281bf6690840f4d10759e212ef9ed1905b8d48"
+    "app/src/main/res/xml/file_paths.xml": "c3281bf6690840f4d10759e212ef9ed1905b8d48",
+    "app/src/main/java/okhttp3/dnsoverhttps/DnsOverHttps.java": "c9f6cd649d2a9b6309cd5da6965bca6ef978af13"
   },
   "delete_files": {
     "app/src/main/java/com/github/tvbox/osc/util/js/Async.java": "818e4a511c6ce901a27fdbc73b29a1c6abf514ce",
