@@ -222,6 +222,7 @@ export function transform(file, source) {
   }
   if (file === 'app/src/main/AndroidManifest.xml') {
     s = replaceOnce(s, '<application', '<uses-permission android:name="android.permission.MOUNT_UNMOUNT_FILESYSTEMS" tools:node="remove" />\n\n    <application');
+    s = replaceOnce(s, '</application>', '    <receiver android:name="androidx.profileinstaller.ProfileInstallReceiver" tools:node="remove" />\n    </application>');
     for (const permission of ['MANAGE_EXTERNAL_STORAGE','REQUEST_INSTALL_PACKAGES','REQUEST_DELETE_PACKAGES','QUERY_ALL_PACKAGES']) {
       const declaration = new RegExp('<uses-permission\\s+android:name="android\\.permission\\.' + permission + '"[^>]*\\/>', 'g');
       if ([...s.matchAll(declaration)].length !== 1) throw new Error(`Permission declaration changed: ${permission}`);
