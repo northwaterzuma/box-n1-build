@@ -19,8 +19,9 @@ test('missing source snapshot fails before producing a write plan', () => {
 test('all adjacent dangerous permission declarations are removed', () => {
   const names = ['MANAGE_EXTERNAL_STORAGE','REQUEST_INSTALL_PACKAGES','REQUEST_DELETE_PACKAGES','QUERY_ALL_PACKAGES'];
   const input = names.map(p => `    <uses-permission android:name="android.permission.${p}" />`).join('\n')
-    + '\n<application android:allowBackup="true" android:usesCleartextTraffic="true" />';
+    + '\n<application android:allowBackup="true" android:usesCleartextTraffic="true"></application>';
   const output = transform('app/src/main/AndroidManifest.xml', input);
   for (const name of names) assert.equal(output.includes(name), false);
   assert.match(output, /MOUNT_UNMOUNT_FILESYSTEMS" tools:node="remove"/);
+  assert.match(output, /ProfileInstallReceiver" tools:node="remove"/);
 });
