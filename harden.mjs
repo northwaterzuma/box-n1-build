@@ -276,7 +276,7 @@ export function transform(file, source) {
     s = replaceMethod(s, 'public void start(int timeout, boolean daemon) throws IOException', '        throw new IOException("Remote server disabled in this build");');
     s = replaceOnce(s, 'super(port);', 'super("127.0.0.1", port);');
   }
-  if (file === box + 'ui/activity/PlayActivity.java') {
+  if (file === box + 'ui/activity/PlayActivity.java' || file === box + 'ui/fragment/PlayFragment.java') {
     s = replaceOnce(s, 'void playUrl(String url, HashMap<String, String> headers) {', `void playUrl(String url, HashMap<String, String> headers) {
         android.net.Uri candidate = url == null ? null : android.net.Uri.parse(url);
         if (candidate == null || !"https".equalsIgnoreCase(candidate.getScheme()) || candidate.getHost() == null) {
@@ -284,20 +284,21 @@ export function transform(file, source) {
             return;
         }`);
     s = replaceOnce(s, 'int playerType = mVodPlayerCfg.getInt("pl");', 'int playerType = 2; // External players are disabled.');
+    const uiDispatch = file === box + 'ui/fragment/PlayFragment.java' ? 'if (getActivity() != null) getActivity().runOnUiThread' : 'runOnUiThread';
     const tail = s.indexOf('    // webview\n');
     if (tail < 0) throw new Error('Web parser marker changed');
     s = s.slice(0, tail) + `    private LinkedList<String> loadFoundVideoUrls = new LinkedList<>();
     private HashMap<String, HashMap<String,String>> loadFoundVideoUrlsHeader = new HashMap<>();
     private final AtomicInteger loadFoundCount = new AtomicInteger(0);
     void loadWebView(String url) {
-        runOnUiThread(() -> Toast.makeText(mContext, "此版本已关闭网页解析，请使用 HTTPS 直连源", Toast.LENGTH_LONG).show());
+        ${uiDispatch}(() -> Toast.makeText(mContext, "此版本已关闭网页解析，请使用 HTTPS 直连源", Toast.LENGTH_LONG).show());
     }
     void loadUrl(String url) { loadWebView(url); }
     void stopLoadWebView(boolean destroy) { }
 }
 `;
     s = s.replace(/^import (org\.xwalk\.[^;]+|com\.github\.tvbox\.osc\.util\.XWalkUtils);\n/gm, '');
-    s = s.replace(/^import android\.(webkit\.[^;]+|net\.http\.SslError);\n/gm, '');
+    s = s.replace(/^import android\.(webkit\.(?!CookieManager;)[^;]+|net\.http\.SslError);\n/gm, '');
   }
   if (file === box + 'util/PlayerHelper.java') {
     s = replaceOnce(s, 'if (forcePlayerType >= 0) playerType = forcePlayerType;', 'playerType = 2; // Only the HTTPS-enforced Exo path is enabled.');
@@ -339,6 +340,14 @@ export function transform(file, source) {
         }
         mUrl = url;
         mHeaders = headers;`);
+  }
+  if (file === cat + 'crawler/Spider.java') {
+    s = replaceOnce(s, 'import com.github.tvbox.osc.util.js.Connect;\n', '');
+  }
+  if (file === box + 'player/controller/VodController.java') {
+    s = replaceMethod(s, 'public void evaluateScript(SourceBean sourceBean,String url, WebView web_view, XWalkView xWalk_view)', '        // Web script execution is disabled in this build.');
+    s = replaceOnce(s, 'WebView web_view, XWalkView xWalk_view', 'WebView web_view, android.view.View xWalk_view');
+    s = replaceOnce(s, 'import org.xwalk.core.XWalkView;\n', '');
   }
   if (file.startsWith(java + 'com/aminography/redirectglide/') && file.endsWith('.kt')) {
     s = s.replaceAll('.body()', '.body').replaceAll('.message()', '.message').replaceAll('.code()', '.code');
