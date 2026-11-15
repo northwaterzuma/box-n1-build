@@ -185,6 +185,16 @@ export function transform(file, source) {
         maven {
             url 'https://maven.aliyun.com/repository/releases'
             content { includeGroupByRegex 'com\\\\.aliyun.*'; includeGroupByRegex 'com\\\\.alivc.*' }
+        }
+        maven {
+            url 'https://maven.aliyun.com/repository/public'
+            content {
+                includeGroup 'com.kingja.loadsir'
+                includeGroup 'me.jessyan'
+                includeGroup 'com.lzy.net'
+                includeGroup 'com.owen'
+                includeGroup 'com.github.ctiao'
+            }
         }`);
   }
   if (file === 'app/build.gradle') {
