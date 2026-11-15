@@ -340,6 +340,9 @@ export function transform(file, source) {
         mUrl = url;
         mHeaders = headers;`);
   }
+  if (file.startsWith(java + 'com/aminography/redirectglide/') && file.endsWith('.kt')) {
+    s = s.replaceAll('.body()', '.body').replaceAll('.message()', '.message').replaceAll('.code()', '.code');
+  }
   if (s === source) throw new Error(`No change for expected patch: ${file}`);
   return s;
 }
