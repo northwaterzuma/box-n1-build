@@ -1,7 +1,7 @@
 import io
 import unittest
 import zipfile
-from verify_apks import validate_zip, validate_manifest
+from verify_apks import validate_zip, validate_manifest, RECEIVER_PERMISSION
 
 
 def apk(libraries):
@@ -49,6 +49,20 @@ class ApkPolicyTests(unittest.TestCase):
     def test_rejects_permission_added_by_dependency(self):
         with self.assertRaisesRegex(ValueError, 'merged permissions'):
             validate_manifest(MANIFEST.replace('android.permission.INTERNET', 'android.permission.RECORD_AUDIO'))
+
+    def test_accepts_signature_protected_internal_receiver_permission(self):
+        manifest = MANIFEST.replace('<application ', f'<permission android:name="{RECEIVER_PERMISSION}" android:protectionLevel="signature"/><uses-permission android:name="{RECEIVER_PERMISSION}"/><application ')
+        self.assertIn(RECEIVER_PERMISSION, validate_manifest(manifest))
+
+    def test_rejects_weak_or_missing_internal_receiver_permission(self):
+        for declaration in ('', f'<permission android:name="{RECEIVER_PERMISSION}" android:protectionLevel="normal"/>'):
+            manifest = MANIFEST.replace('<application ', declaration + f'<uses-permission android:name="{RECEIVER_PERMISSION}"/><application ')
+            with self.assertRaisesRegex(ValueError, 'same signature'):
+                validate_manifest(manifest)
+
+    def test_rejects_mount_permission(self):
+        with self.assertRaisesRegex(ValueError, 'merged permissions'):
+            validate_manifest(MANIFEST.replace('android.permission.INTERNET', 'android.permission.MOUNT_UNMOUNT_FILESYSTEMS'))
 
     def test_rejects_exported_receiver(self):
         with self.assertRaisesRegex(ValueError, 'exported component'):
