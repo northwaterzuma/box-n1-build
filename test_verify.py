@@ -1,0 +1,63 @@
+import io
+import unittest
+import zipfile
+from verify_apks import validate_zip, validate_manifest
+
+
+def apk(libraries):
+    data = io.BytesIO()
+    with zipfile.ZipFile(data, 'w') as archive:
+        for name, (bits, machine) in libraries.items():
+            elf = bytearray(64)
+            elf[:4] = b'\x7fELF'
+            elf[4:6] = bytes([bits, 1])
+            elf[18:20] = machine.to_bytes(2, 'little')
+            archive.writestr(name, elf)
+    return zipfile.ZipFile(data)
+
+
+MANIFEST = '''<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="com.github.tvbox.osc.n1strict">
+<uses-permission android:name="android.permission.INTERNET"/>
+<application android:allowBackup="false" android:usesCleartextTraffic="false" android:networkSecurityConfig="@xml/network_security_config">
+<activity android:name="com.github.tvbox.osc.ui.activity.HomeActivity" android:exported="true"><intent-filter><category android:name="android.intent.category.LEANBACK_LAUNCHER"/></intent-filter></activity>
+</application></manifest>'''
+
+
+class ApkPolicyTests(unittest.TestCase):
+    def test_accepts_real_arm64_header(self):
+        with apk({'lib/arm64-v8a/libplayer.so': (2, 183)}) as archive:
+            self.assertEqual(len(validate_zip(archive, 'arm64-v8a')), 1)
+
+    def test_rejects_mislabeled_32_bit_library(self):
+        with apk({'lib/arm64-v8a/libplayer.so': (1, 40)}) as archive:
+            with self.assertRaisesRegex(ValueError, 'architecture mismatch'):
+                validate_zip(archive, 'arm64-v8a')
+
+    def test_rejects_mixed_abi(self):
+        with apk({'lib/arm64-v8a/liba.so': (2, 183), 'lib/armeabi-v7a/liba.so': (1, 40)}) as archive:
+            with self.assertRaisesRegex(ValueError, 'mixed ABI'):
+                validate_zip(archive, 'arm64-v8a')
+
+    def test_rejects_disabled_runtime(self):
+        with apk({'lib/arm64-v8a/libquickjs.so': (2, 183)}) as archive:
+            with self.assertRaisesRegex(ValueError, 'runtime packaged'):
+                validate_zip(archive, 'arm64-v8a')
+
+    def test_accepts_minimal_manifest(self):
+        self.assertEqual(validate_manifest(MANIFEST), ['android.permission.INTERNET'])
+
+    def test_rejects_permission_added_by_dependency(self):
+        with self.assertRaisesRegex(ValueError, 'merged permissions'):
+            validate_manifest(MANIFEST.replace('android.permission.INTERNET', 'android.permission.RECORD_AUDIO'))
+
+    def test_rejects_exported_receiver(self):
+        with self.assertRaisesRegex(ValueError, 'exported component'):
+            validate_manifest(MANIFEST.replace('</application>', '<receiver android:name="Other" android:exported="true"/></application>'))
+
+    def test_rejects_http_policy(self):
+        with self.assertRaisesRegex(ValueError, 'Cleartext'):
+            validate_manifest(MANIFEST.replace('usesCleartextTraffic="false"', 'usesCleartextTraffic="true"'))
+
+
+if __name__ == '__main__':
+    unittest.main()

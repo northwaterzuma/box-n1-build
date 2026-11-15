@@ -1,0 +1,31 @@
+import groovy.json.JsonOutput
+import java.security.MessageDigest
+
+allprojects { project ->
+    project.afterEvaluate {
+        if (project.path == ':app') {
+            project.tasks.register('n1DependencyInventory') {
+                doLast {
+                    def packages = [:]
+                    ['arm64GenericNormalReleaseRuntimeClasspath', 'armeabiGenericNormalReleaseRuntimeClasspath'].each { configName ->
+                        project.configurations.getByName(configName).resolvedConfiguration.resolvedArtifacts.each { artifact ->
+                            def id = artifact.moduleVersion.id
+                            def digest = MessageDigest.getInstance('SHA-256')
+                            artifact.file.withInputStream { stream ->
+                                byte[] buffer = new byte[65536]
+                                int count
+                                while ((count = stream.read(buffer)) != -1) digest.update(buffer, 0, count)
+                            }
+                            def item = [name: "${id.group}:${id.name}".toString(), version: id.version,
+                                artifact: artifact.file.name, sha256: digest.digest().encodeHex().toString()]
+                            packages["${item.name}:${item.version}:${item.artifact}"] = item
+                        }
+                    }
+                    def output = new File(project.rootProject.buildDir, 'security/dependencies.json')
+                    output.parentFile.mkdirs()
+                    output.text = JsonOutput.prettyPrint(JsonOutput.toJson([packages: packages.values().sort { it.name + it.version + it.artifact }]))
+                }
+            }
+        }
+    }
+}

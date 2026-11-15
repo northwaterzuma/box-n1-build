@@ -1,2 +1,34 @@
-# box-n1-build
-Pinned Box source build for N1: HTTPS-only candidate, disabled third-party code plugins, dual-ABI checks and dependency audit. Not a security certification.
+# Box N1 严格候选版
+
+本仓库提供固定上游快照的严格版补丁和云端构建流程。用户已选择安全优先，接受部分源与功能不可用，并批准创建本仓库和执行首轮云端检查；在取得真实构建记录前，不能视为已编译成功或通过全部安全检查。
+
+固定上游：<https://github.com/takagen99/Box/tree/258a5fef61578869ae905ca230bdde9e99fc19a8>。本工具只对该快照和记录在 `baseline.json` 中的原始文件生效；匹配失败即停止写入。上游许可证为 AGPL-3.0，发布源码和 APK 时保留许可证、出处和修改说明。
+
+准备的修改：
+
+- 关闭 JAR/JS/Python 源插件，移除 QuickJS 模块和脚本实现；关闭网页解析，排除旧 Crosswalk AAR；关闭 P2P/下载引擎与网络控制服务。
+- 使用系统证书与正常主机名校验，关闭旧的信任全部证书实现；主请求、重定向和媒体分片使用 HTTPS 检查。禁止 RTMP、RTSP、HTTP 和网页播放路径；外部播放器不启用。
+- 固定使用 Exo 播放路径，关闭原生网络播放器和扩展解码器的启用入口。上游部分原生库与厂商依赖仍包含在包中，需单独审查，不能视为已从源码重建或已消除漏洞。
+- 禁用备份、安装/卸载权限、全盘管理权限、包清单查询权限和外部广播入口；限制 FileProvider 路径。保留现有 READ/WRITE_EXTERNAL_STORAGE 权限供现有文件功能使用，合并后的其他权限超出白名单即阻止交付。
+- 应用 ID 改为 `com.github.tvbox.osc.n1strict`；最低 Android 版本为 7.0，以便系统网络安全配置能够生效。
+
+构建工作流位于 `.github/workflows/build.yml`。仅手动触发；源码、Actions 和 Gradle 版本固定；不会在本机安装 Java、Android SDK 或 Gradle。云端使用预装 JDK 17、Android SDK 34，官方 Gradle 7.6.4；这是兼容现有上游的起点，并非声称工具链和所有依赖都是最新版。
+
+工作流先生成 Maven 依赖清单并查询 OSV。命中已知公告或查询不完整时停止，待查明并修复后重跑。未命中不构成安全保证；本地 JAR/AAR 和预编译原生库不在该 Maven 查询的完整覆盖范围。
+
+首次解析依赖时生成 SHA-256 校验基线，后续编译启用严格校验。首次基线是下载内容记录，不能证明第一次下载可信。编译完成后检查双 ABI、每个 ELF 的实际架构、原生库哈希、实际合并权限和网络策略。任何检查失败时不上传可交付 APK。
+
+首次构建选择 `sign=false`，只能得到未签名候选 APK。正式签名需要用户自行在 GitHub 仓库 Secrets 中配置以下四项；不要在聊天中提供这些值：
+
+- `BOX_KEYSTORE_B64`
+- `BOX_KEYSTORE_PASSWORD`
+- `BOX_KEY_ALIAS`
+- `BOX_KEY_PASSWORD`
+
+配置后选择 `sign=true`。签名在独立任务中进行，不执行上游构建代码；密钥仅传给签名步骤，不打印或上传密钥。必须由用户保管稳定密钥备份；当前材料没有生成或读取任何用户密钥。不同签名不能直接覆盖更新现有应用。
+
+本地已通过 4 项 Node 测试，且在内存中验证了 24 个固定上游文本文件的原始 Git blob 哈希和补丁匹配。Python 检查程序的 11 项测试已准备好；本机 Python 启动器报告未安装解释器，因此未运行，工作流会先在云端执行。尚未验证 Android 编译、依赖公告结果、签名或 N1 实机行为。
+
+直播回看需要合法授权且可用的 HTTPS 回看源和节目单。关闭插件与明文源后，某些现有配置将不能使用。该候选版无法修复 Android 固件、系统 WebView/编解码器或内核漏洞，也不能承诺不存在未知漏洞。
+
+完整来源、网络域名和执行命令见 `SECURITY_REVIEW.md`。本任务只进行仓库建设和云端检查，不向 N1 安装或修改固件。
