@@ -62,6 +62,7 @@ def validate_manifest(xml):
     if RECEIVER_PERMISSION in permissions or receiver_permissions:
         require(len(receiver_permissions) == 1 and receiver_permissions[0].get(ANDROID + 'protectionLevel') in ('signature', '2', '0x2', '0x00000002'), 'Internal receiver permission must require the same signature')
     require(permissions <= ALLOWED_PERMISSIONS, 'Unreviewed merged permissions: ' + str(sorted(permissions - ALLOWED_PERMISSIONS)))
+    exported_components = []
     for tag in ('activity', 'activity-alias', 'service', 'receiver', 'provider'):
         for item in app.findall(tag):
             filters = item.findall('intent-filter')
@@ -71,7 +72,9 @@ def validate_manifest(xml):
             launcher = tag == 'activity' and item.get(ANDROID + 'name', '').endswith('.HomeActivity') and any(
                 category.get(ANDROID + 'name') in ('android.intent.category.LAUNCHER', 'android.intent.category.LEANBACK_LAUNCHER')
                 for intent in filters for category in intent.findall('category'))
-            require(launcher, 'Unexpected exported component: ' + str(item.get(ANDROID + 'name')))
+            if not launcher:
+                exported_components.append(item.get(ANDROID + 'name'))
+    require(not exported_components, 'Unexpected exported components: ' + str(exported_components))
     return sorted(permissions)
 
 
