@@ -26,7 +26,10 @@
     "app/src/main/java/xyz/doikki/videoplayer/player/BaseVideoView.java": "f0015fb1ff35c065cbe76eedfd6982d7cd7188fd",
     "app/src/main/res/xml/network_security_config.xml": "dca93c079e349fc5005ea8b3ea0947eb9bec9619",
     "app/src/main/res/xml/file_paths.xml": "c3281bf6690840f4d10759e212ef9ed1905b8d48",
-    "app/src/main/java/okhttp3/dnsoverhttps/DnsOverHttps.java": "c9f6cd649d2a9b6309cd5da6965bca6ef978af13"
+    "app/src/main/java/okhttp3/dnsoverhttps/DnsOverHttps.java": "c9f6cd649d2a9b6309cd5da6965bca6ef978af13",
+    "app/src/main/java/com/aminography/redirectglide/OkHttpApiCallUrlFetcher.kt": "9217aaffc791e01ce614b5c2ee7b4e8c33425a8d",
+    "app/src/main/java/com/aminography/redirectglide/OkHttpRedirectUrlFetcher.kt": "81f90531a819d8577fbfea4d0263b713be4d35d1",
+    "app/src/main/java/com/aminography/redirectglide/OkHttpStreamFetcher.kt": "d0a8e8bc1af857c5beb0d134c65fb17637cbfaa4"
   },
   "delete_files": {
     "app/src/main/java/com/github/tvbox/osc/util/js/Async.java": "818e4a511c6ce901a27fdbc73b29a1c6abf514ce",
