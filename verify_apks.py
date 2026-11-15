@@ -79,19 +79,17 @@ def validate_manifest(xml):
 
 
 def network_resource_path(manifest_tree, resources):
-    reference = re.search(r'android:networkSecurityConfig[^=
-]*=@(0x[0-9a-fA-F]+)', manifest_tree)
+    reference = re.search(r'android:networkSecurityConfig[^=\n]*=@(0x[0-9a-fA-F]+)', manifest_tree)
     require(reference is not None, 'Packaged network policy reference missing')
     resource_id = reference.group(1).lower()
     paths = set()
     active = False
     for line in resources.splitlines():
-        item = re.match(r's*(spec )?resource (0x[0-9a-fA-F]+)', line)
+        item = re.match(r'\s*(spec )?resource (0x[0-9a-fA-F]+)\b', line)
         if item:
             active = not item.group(1) and item.group(2).lower() == resource_id
         if active:
-            paths.update(re.findall(r'"(res/[^"
-]+.xml)"', line))
+            paths.update(re.findall(r'"(res/[^"\n]+\.xml)"', line))
     require(len(paths) == 1, 'Missing or ambiguous packaged network policy resource: ' + resource_id)
     return paths.pop()
 
