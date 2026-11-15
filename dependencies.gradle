@@ -6,6 +6,19 @@ allprojects { project ->
         if (project.path == ':app') {
             project.tasks.register('n1DependencyInventory') {
                 doLast {
+                    // Resolve compile-time configurations before the strict compilation pass.
+                    project.configurations.findAll { configuration ->
+                        def name = configuration.name.toLowerCase(Locale.ROOT)
+                        configuration.canBeResolved && (
+                            name.contains('arm64genericnormalrelease') ||
+                            name.contains('armeabigenericnormalrelease') ||
+                            name.startsWith('kotlincompiler'))
+                    }.each { it.resolve() }
+                    // Official Google Maven artifact also requested by AGP 7.4.2.
+                    // https://dl.google.com/dl/android/maven2/com/android/tools/build/aapt2/7.4.2-8841542/aapt2-7.4.2-8841542-linux.jar
+                    project.configurations.detachedConfiguration(
+                        project.dependencies.create('com.android.tools.build:aapt2:7.4.2-8841542:linux')
+                    ).resolve()
                     def packages = [:]
                     ['arm64GenericNormalReleaseRuntimeClasspath', 'armeabiGenericNormalReleaseRuntimeClasspath'].each { configName ->
                         project.configurations.getByName(configName).resolvedConfiguration.resolvedArtifacts.each { artifact ->
